@@ -1,7 +1,35 @@
+#!/usr/bin/env python3
 # scripts/setup.py
 import os
 import sys
 from pathlib import Path
+
+# Colors for Linux terminal
+class Colors:
+    RED = '\033[0;31m'
+    GREEN = '\033[0;32m'
+    YELLOW = '\033[1;33m'
+    BLUE = '\033[0;34m'
+    NC = '\033[0m'
+
+def print_colored(message, color):
+    """Print colored message if terminal supports it"""
+    if sys.stdout.isatty():
+        print(f"{color}{message}{Colors.NC}")
+    else:
+        print(message)
+
+def print_success(message):
+    print_colored(f"✅ {message}", Colors.GREEN)
+
+def print_error(message):
+    print_colored(f"❌ {message}", Colors.RED)
+
+def print_warning(message):
+    print_colored(f"⚠️ {message}", Colors.YELLOW)
+
+def print_info(message):
+    print_colored(f"ℹ️ {message}", Colors.BLUE)
 
 def create_directories():
     """Create necessary directories"""
@@ -9,21 +37,20 @@ def create_directories():
         'data/logs',
         'data/models',
         'data/historical',
-        'logs',
-        'config'
+        'logs'
     ]
     
     for directory in directories:
         Path(directory).mkdir(parents=True, exist_ok=True)
-        print(f"✅ Created directory: {directory}")
+        print_success(f"Created directory: {directory}")
 
 def check_env_file():
     """Check if .env file exists and has required variables"""
     env_file = Path('.env')
     
     if not env_file.exists():
-        print("⚠️  .env file not found")
-        print("Creating .env file from template...")
+        print_warning(".env file not found")
+        print_info("Creating .env file from template...")
         
         # Create .env from template
         template_content = """# Delta Exchange API Configuration
@@ -64,8 +91,8 @@ DEBUG=false
         with open('.env', 'w') as f:
             f.write(template_content)
         
-        print("✅ .env file created")
-        print("⚠️  IMPORTANT: Please edit .env file and add your Delta Exchange API credentials")
+        print_success(".env file created")
+        print_warning("IMPORTANT: Please edit .env file and add your Delta Exchange API credentials")
         return False
     
     # Check if required variables are set
@@ -79,25 +106,26 @@ DEBUG=false
                 missing_vars.append(var)
     
     if missing_vars:
-        print(f"⚠️  Missing required variables in .env: {', '.join(missing_vars)}")
+        print_warning(f"Missing required variables in .env: {', '.join(missing_vars)}")
         return False
     
-    print("✅ .env file looks good")
+    print_success(".env file looks good")
     return True
 
 def check_python_version():
     """Check Python version"""
     if sys.version_info < (3, 8):
-        print("❌ Python 3.8+ required")
+        print_error("Python 3.8+ required")
+        print(f"Current version: {sys.version}")
         return False
     
-    print(f"✅ Python version: {sys.version}")
+    print_success(f"Python version: {sys.version}")
     return True
 
 def main():
     """Main setup function"""
     print("=" * 60)
-    print("ALGOBOT SETUP")
+    print("🚀 ALGOBOT SETUP FOR LINUX")
     print("=" * 60)
     
     # Check Python version
@@ -114,24 +142,29 @@ def main():
     
     # Installation instructions
     print("\n3. Next steps:")
-    print("   a) Install dependencies:")
-    print("      pip install -r requirements.txt")
+    print_info("Install dependencies:")
+    print("   pip install -r requirements.txt")
+    print("   # Or use the automated script:")
+    print("   bash setup_linux.sh")
     
     if not env_ok:
-        print("   b) Edit .env file with your Delta Exchange API credentials")
-        print("      Get API keys from: https://testnet.delta.exchange (for testnet)")
+        print_info("Edit .env file with your Delta Exchange API credentials:")
+        print("   nano .env")
+        print("   # Get API keys from: https://testnet.delta.exchange (for testnet)")
     
-    print("   c) Test connection:")
-    print("      python scripts/test_connection.py")
+    print_info("Test connection:")
+    print("   python scripts/test_connection.py")
     
-    print("   d) Start the bot:")
-    print("      python src/main.py")
+    print_info("Start the bot:")
+    print("   python src/main.py")
+    print("   # Or use:")
+    print("   bash run_linux.sh")
     
     print("\n" + "=" * 60)
     if env_ok:
-        print("✅ Setup complete! You can now run the bot.")
+        print_success("Setup complete! You can now run the bot.")
     else:
-        print("⚠️  Setup incomplete. Please configure your API credentials.")
+        print_warning("Setup incomplete. Please configure your API credentials.")
     print("=" * 60)
     
     return 0

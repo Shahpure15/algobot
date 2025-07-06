@@ -1,23 +1,51 @@
-#!/usr/bin/env python
-# validate_setup.py - Comprehensive setup validation
+#!/usr/bin/env python3
+# validate_setup.py - Comprehensive setup validation for Linux
 import sys
 import os
 import subprocess
 import importlib
 from pathlib import Path
 
+# Colors for Linux terminal
+class Colors:
+    RED = '\033[0;31m'
+    GREEN = '\033[0;32m'
+    YELLOW = '\033[1;33m'
+    BLUE = '\033[0;34m'
+    NC = '\033[0m'  # No Color
+
+def print_colored(message, color):
+    """Print colored message if terminal supports it"""
+    if sys.stdout.isatty():
+        print(f"{color}{message}{Colors.NC}")
+    else:
+        print(message)
+
+def print_success(message):
+    print_colored(f"✅ {message}", Colors.GREEN)
+
+def print_error(message):
+    print_colored(f"❌ {message}", Colors.RED)
+
+def print_warning(message):
+    print_colored(f"⚠️ {message}", Colors.YELLOW)
+
+def print_info(message):
+    print_colored(f"ℹ️ {message}", Colors.BLUE)
+
 def check_python_version():
     """Check Python version"""
-    print("1. Checking Python version...")
+    print_info("Checking Python version...")
     if sys.version_info < (3, 8):
-        print("   ❌ Python 3.8+ required")
+        print_error("Python 3.8+ required")
+        print(f"Current version: {sys.version}")
         return False
-    print(f"   ✅ Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
+    print_success(f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
     return True
 
 def check_dependencies():
     """Check if all dependencies are installed"""
-    print("\n2. Checking dependencies...")
+    print_info("Checking dependencies...")
     
     required_packages = [
         'requests', 'pandas', 'numpy', 'websocket-client', 
@@ -28,13 +56,13 @@ def check_dependencies():
     for package in required_packages:
         try:
             importlib.import_module(package.replace('-', '_'))
-            print(f"   ✅ {package}")
+            print_success(package)
         except ImportError:
-            print(f"   ❌ {package} - missing")
+            print_error(f"{package} - missing")
             missing.append(package)
     
     if missing:
-        print(f"\n   Install missing packages: pip install {' '.join(missing)}")
+        print_warning(f"Install missing packages: pip install {' '.join(missing)}")
         return False
     
     return True
@@ -203,31 +231,36 @@ def run_connection_test():
 def main():
     """Main validation function"""
     print("=" * 60)
-    print("ALGOBOT SETUP VALIDATION")
+    print("🚀 ALGOBOT SETUP VALIDATION FOR LINUX")
     print("=" * 60)
     
+    # Add current directory to path
+    sys.path.insert(0, str(Path(__file__).parent))
+    
     checks = [
-        check_python_version,
-        check_dependencies,
-        check_directories,
-        check_files,
-        check_configuration,
-        test_imports,
-        check_docker,
-        run_connection_test
+        ("Python Version", check_python_version),
+        ("Dependencies", check_dependencies),
+        ("Directories", check_directories),
+        ("Required Files", check_files),
+        ("Configuration", check_configuration),
+        ("Module Imports", test_imports),
+        ("Docker Setup", check_docker),
+        ("Connection Test", run_connection_test)
     ]
     
     results = []
-    for check in checks:
+    for check_name, check_func in checks:
         try:
-            result = check()
+            print(f"\n{len(results) + 1}. {check_name}")
+            print("-" * 40)
+            result = check_func()
             results.append(result)
         except Exception as e:
-            print(f"   ❌ Check failed with error: {e}")
+            print_error(f"Check failed with error: {e}")
             results.append(False)
     
     print("\n" + "=" * 60)
-    print("VALIDATION SUMMARY")
+    print("📊 VALIDATION SUMMARY")
     print("=" * 60)
     
     passed = sum(results)
@@ -236,17 +269,18 @@ def main():
     print(f"Passed: {passed}/{total}")
     
     if passed == total:
-        print("✅ All checks passed! Your bot is ready to run.")
-        print("\nNext steps:")
+        print_success("All checks passed! Your bot is ready to run on Linux.")
+        print("\n🚀 Next steps:")
         print("1. Start bot: python src/main.py")
-        print("2. Or with Docker: docker-compose up -d")
-        print("3. Monitor logs: tail -f data/logs/bot.log")
+        print("2. Or with script: bash run_linux.sh")
+        print("3. Or with Docker: docker-compose up -d")
+        print("4. Monitor logs: tail -f data/logs/bot.log")
         return 0
     else:
-        print("❌ Some checks failed. Please fix the issues above.")
-        print("\nCommon fixes:")
+        print_error("Some checks failed. Please fix the issues above.")
+        print("\n🔧 Common fixes:")
         print("- Install dependencies: pip install -r requirements.txt")
-        print("- Run setup: python scripts/setup.py")
+        print("- Run setup: bash setup_linux.sh")
         print("- Configure .env file with your API credentials")
         return 1
 

@@ -1,14 +1,45 @@
+#!/usr/bin/env python3
 # scripts/test_connection.py
 import sys
 import os
 from pathlib import Path
 
-# Add src to path
-sys.path.append(str(Path(__file__).parent.parent))
+# Add parent directories to path
+current_dir = Path(__file__).parent
+project_root = current_dir.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / 'src'))
 
 from src.exchanges.delta.clients import DeltaExchangeClient
 from src.utils.logger import setup_logger, get_logger
 from config.settings import config
+
+# Colors for Linux terminal
+class Colors:
+    RED = '\033[0;31m'
+    GREEN = '\033[0;32m'
+    YELLOW = '\033[1;33m'
+    BLUE = '\033[0;34m'
+    NC = '\033[0m'
+
+def print_colored(message, color):
+    """Print colored message if terminal supports it"""
+    if sys.stdout.isatty():
+        print(f"{color}{message}{Colors.NC}")
+    else:
+        print(message)
+
+def print_success(message):
+    print_colored(f"✅ {message}", Colors.GREEN)
+
+def print_error(message):
+    print_colored(f"❌ {message}", Colors.RED)
+
+def print_warning(message):
+    print_colored(f"⚠️ {message}", Colors.YELLOW)
+
+def print_info(message):
+    print_colored(f"ℹ️ {message}", Colors.BLUE)
 
 def test_delta_connection():
     """Test Delta Exchange connection and API calls"""
@@ -18,19 +49,19 @@ def test_delta_connection():
     logger = get_logger(__name__)
     
     print("=" * 60)
-    print("DELTA EXCHANGE CONNECTION TEST")
+    print("🔗 DELTA EXCHANGE CONNECTION TEST")
     print("=" * 60)
     
     try:
         # Check if API credentials are set
         if not config.exchange.api_key or not config.exchange.api_secret:
-            print("❌ ERROR: API credentials not set")
+            print_error("API credentials not set")
             print("Please set DELTA_API_KEY and DELTA_API_SECRET in your .env file")
             return False
         
-        print(f"🔗 Testing connection to Delta Exchange...")
-        print(f"   Testnet: {config.exchange.testnet}")
-        print(f"   Symbol: {config.trading.symbol}")
+        print_info(f"Testing connection to Delta Exchange...")
+        print(f"   🌐 Testnet: {config.exchange.testnet}")
+        print(f"   📊 Symbol: {config.trading.symbol}")
         
         # Initialize client
         client = DeltaExchangeClient(
@@ -42,38 +73,38 @@ def test_delta_connection():
         # Test 1: Connection test
         print("\n1. Testing API connection...")
         if client.test_connection():
-            print("   ✅ Connection successful")
+            print_success("Connection successful")
         else:
-            print("   ❌ Connection failed")
+            print_error("Connection failed")
             return False
         
         # Test 2: Get account balance
         print("\n2. Fetching account balance...")
         try:
             balance_data = client.get_account_balance()
-            print(f"   ✅ Balance data retrieved: {balance_data}")
+            print_success(f"Balance data retrieved: {balance_data}")
         except Exception as e:
-            print(f"   ❌ Failed to get balance: {e}")
+            print_error(f"Failed to get balance: {e}")
             return False
         
         # Test 3: Get available products
         print("\n3. Fetching available products...")
         try:
             products = client.get_products()
-            print(f"   ✅ Found {len(products.get('result', []))} products")
+            print_success(f"Found {len(products.get('result', []))} products")
             
             # Check if our trading symbol exists
             symbol_found = False
             for product in products.get('result', []):
                 if product.get('symbol') == config.trading.symbol:
                     symbol_found = True
-                    print(f"   ✅ Trading symbol {config.trading.symbol} found")
-                    print(f"      Product ID: {product.get('id')}")
-                    print(f"      Base Asset: {product.get('underlying_asset')}")
+                    print_success(f"Trading symbol {config.trading.symbol} found")
+                    print(f"      📋 Product ID: {product.get('id')}")
+                    print(f"      💰 Base Asset: {product.get('underlying_asset')}")
                     break
             
             if not symbol_found:
-                print(f"   ⚠️  Trading symbol {config.trading.symbol} not found")
+                print_warning(f"Trading symbol {config.trading.symbol} not found")
                 print("   Available symbols:")
                 for i, product in enumerate(products.get('result', [])[:10]):
                     print(f"      {i+1}. {product.get('symbol')}")
@@ -81,19 +112,19 @@ def test_delta_connection():
                     print(f"      ... and {len(products.get('result', [])) - 10} more")
                     
         except Exception as e:
-            print(f"   ❌ Failed to get products: {e}")
+            print_error(f"Failed to get products: {e}")
             return False
         
         # Test 4: Get current positions
         print("\n4. Fetching current positions...")
         try:
             positions = client.get_positions()
-            print(f"   ✅ Current positions: {len(positions.get('result', []))}")
+            print_success(f"Current positions: {len(positions.get('result', []))}")
             if positions.get('result'):
                 for pos in positions['result']:
-                    print(f"      {pos.get('symbol')}: {pos.get('size')} @ {pos.get('entry_price')}")
+                    print(f"      📊 {pos.get('symbol')}: {pos.get('size')} @ {pos.get('entry_price')}")
         except Exception as e:
-            print(f"   ❌ Failed to get positions: {e}")
+            print_error(f"Failed to get positions: {e}")
             return False
         
         # Test 5: Get historical data (if available)
@@ -103,20 +134,20 @@ def test_delta_connection():
                 symbol=config.trading.symbol,
                 resolution=config.trading.timeframe
             )
-            print(f"   ✅ Historical data retrieved: {len(historical_data.get('result', []))} candles")
+            print_success(f"Historical data retrieved: {len(historical_data.get('result', []))} candles")
         except Exception as e:
-            print(f"   ❌ Failed to get historical data: {e}")
+            print_error(f"Failed to get historical data: {e}")
             # This is not critical, continue
         
         print("\n" + "=" * 60)
-        print("✅ ALL TESTS PASSED!")
-        print("Delta Exchange connection is working correctly.")
+        print_success("ALL TESTS PASSED!")
+        print("🎉 Delta Exchange connection is working correctly.")
         print("=" * 60)
         
         return True
         
     except Exception as e:
-        print(f"\n❌ CRITICAL ERROR: {e}")
+        print_error(f"CRITICAL ERROR: {e}")
         logger.error(f"Connection test failed: {e}")
         return False
 
@@ -175,7 +206,7 @@ def test_order_placement():
 
 def main():
     """Main test function"""
-    print("Starting Delta Exchange connectivity tests...")
+    print("🚀 Starting Delta Exchange connectivity tests...")
     
     # Test basic connection
     connection_ok = test_delta_connection()
@@ -186,11 +217,15 @@ def main():
         
         if order_ok:
             print("\n🎉 All tests completed successfully!")
-            print("Your bot is ready to start trading!")
+            print("✅ Your bot is ready to start trading!")
+            print("\n📋 Next steps:")
+            print("1. Start bot: python src/main.py")
+            print("2. Or with script: bash run_linux.sh") 
+            print("3. Monitor: tail -f data/logs/bot.log")
         else:
-            print("\n⚠️  Connection OK, but order placement needs attention")
+            print_warning("Connection OK, but order placement needs attention")
     else:
-        print("\n❌ Connection tests failed. Please check your configuration.")
+        print_error("Connection tests failed. Please check your configuration.")
         return 1
     
     return 0
