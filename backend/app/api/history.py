@@ -1,7 +1,9 @@
 from fastapi import APIRouter
 from app.core.database import database
+from app.db import database
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
+
 
 @router.get("/history")
 async def get_history():
