@@ -1,11 +1,12 @@
 from fastapi import FastAPI
-from databases import Database
 from app.db import database
 from app.api import history, trading
-DATABASE_URL = "postgresql+asyncpg://trader:secret@db:5432/trading"
-database = Database(DATABASE_URL)
 
 app = FastAPI()
+
+# Include API routers
+app.include_router(trading.router)
+app.include_router(history.router)
 
 @app.on_event("startup")
 async def startup():
