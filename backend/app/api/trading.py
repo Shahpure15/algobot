@@ -1,7 +1,5 @@
 from fastapi import APIRouter, status
 from pydantic import BaseModel, constr, condecimal
-from app.core.database import database
-from sqlalchemy import insert
 from app.db import database
 
 
