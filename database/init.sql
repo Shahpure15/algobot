@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS trades (
+    id SERIAL PRIMARY KEY,
+    symbol VARCHAR(10) NOT NULL,
+    side VARCHAR(4) NOT NULL,
+    quantity NUMERIC(16,8) NOT NULL,
+    price NUMERIC(16,8) NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT NOW()
+);

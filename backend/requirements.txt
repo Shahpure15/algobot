@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+asyncpg
+sqlalchemy>=2.0
+databases[postgresql]
+pydantic
