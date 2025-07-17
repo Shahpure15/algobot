@@ -1,0 +1,106 @@
+# AlgoBot: Cryptocurrency Trading Platform
+
+A full-stack application for algorithmic cryptocurrency trading that integrates with Delta Exchange API. This platform allows users to execute trades, manage positions, and analyze trading performance through a clean web interface.
+
+## Features
+
+- 🔐 **Secure Delta Exchange Integration** - Connect safely with API credentials
+- 💰 **Real-time Account Balance** - View your account balances across all assets
+- 📊 **Advanced Order Types** - Place market, limit, stop loss, and take profit orders
+- 📈 **Interactive Charts** - Visualize trading activity and performance
+- 📋 **Trade History** - Complete history of all trades with status tracking
+- 📊 **Trading Statistics** - Success rates, volume metrics, and performance analytics
+- 🎨 **Modern UI** - Clean, responsive design with Material-UI components
+- 🔄 **Real-time Updates** - Live data synchronization and notifications
+
+## Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │   Backend       │    │   Database      │
+│   (React +      │────│   (FastAPI)     │────│   (PostgreSQL)  │
+│   Material-UI)  │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                │
+                                │
+                       ┌─────────────────┐
+                       │ Delta Exchange  │
+                       │      API        │
+                       └─────────────────┘
+```
+
+## Tech Stack
+
+- **Backend**: FastAPI (Python)
+- **Frontend**: React with Material-UI
+- **Database**: PostgreSQL
+- **Containerization**: Docker & Docker Compose
+- **API**: Delta Exchange API integration
+
+## Project Structure
+
+```
+algobot/
+├── backend/                # FastAPI backend
+│   ├── app/                # Application code
+│   │   ├── api/            # API endpoints
+│   │   ├── core/           # Core business logic
+│   │   └── models/         # Data models
+│   ├── DockerFile          # Backend Docker configuration
+│   └── requirements.txt    # Python dependencies
+├── database/               # Database initialization scripts
+├── frontend/               # React frontend
+│   ├── src/                # Source code
+│   │   ├── components/     # React components
+│   │   └── App.jsx         # Main application component
+│   ├── Dockerfile          # Frontend Docker configuration
+│   └── package.json        # Node.js dependencies
+├── docker-compose.yml      # Services configuration
+└── .env.example            # Environment variables template
+```
+
+## Setup & Installation
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Delta Exchange API credentials (Optional for demo mode)
+
+### Quick Start
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd algobot
+   ```
+
+2. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your Delta Exchange API credentials
+   ```
+
+3. Start the application:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Access the application:
+   - Web interface: http://localhost:3000
+   - API documentation: http://localhost:8000/docs
+
+### Using the Application
+
+1. **Connect Exchange**: Enter your Delta Exchange API credentials
+2. **View Balances**: Check your available assets and balances
+3. **Place Trades**: Use the trading panel to create orders
+4. **Monitor Positions**: Track active positions and performance
+5. **Analyze History**: Review past trades and performance metrics
+
+## API Documentation
+
+The API documentation is automatically generated and available at `http://localhost:8000/docs` when the application is running.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

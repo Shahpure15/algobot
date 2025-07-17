@@ -1,0 +1,28 @@
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: myresolver
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    watch: true
+
+certificatesResolvers:
+  myresolver:
+    acme:
+      email: "youremail@example.com"
+      storage: "/certificates/acme.json"
+      httpChallenge:
+        entryPoint: web

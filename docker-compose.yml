@@ -1,6 +1,9 @@
 services:
+  # Database service
   db:
     image: postgres:15-alpine
+    container_name: algobot-db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: trader
       POSTGRES_PASSWORD: secret
@@ -10,29 +13,49 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
-
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  
+  # Backend API service
   backend:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: DockerFile
+    container_name: algobot-backend
+    restart: unless-stopped
     command: ["/wait-for-it.sh", "db", "5432", "--", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     volumes:
       - ./backend:/code
     environment:
       DATABASE_URL: postgresql+asyncpg://trader:secret@db:5432/trading
+      DELTA_API_KEY: ${DELTA_API_KEY:-}
+      DELTA_API_SECRET: ${DELTA_API_SECRET:-}
+      DELTA_BASE_URL: ${DELTA_BASE_URL:-https://api.delta.exchange}
+      SECRET_KEY: ${SECRET_KEY:-development-secret-key}
     ports:
       - "8000:8000"
     depends_on:
-      - db
-
+      db:
+        condition: service_healthy
+  
+  # Frontend web service
   frontend:
     build: ./frontend
+    container_name: algobot-frontend
+    restart: unless-stopped
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    working_dir: /app
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8000
 
 volumes:
   db_data:

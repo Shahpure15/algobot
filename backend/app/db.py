@@ -1,4 +1,4 @@
-from databases import Database
+from app.core.database import database
 
-DATABASE_URL = "postgresql+asyncpg://trader:secret@db:5432/trading"
-database = Database(DATABASE_URL)
+# This file is kept for backward compatibility
+# Consider using app.core.database directly in future updates

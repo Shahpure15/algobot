@@ -1,0 +1,231 @@
+from delta_rest_client import DeltaRestClient
+import asyncio
+import logging
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+class DeltaExchangeConfig(BaseModel):
+    api_key: str = ""
+    api_secret: str = ""
+    base_url: str = "https://api.delta.exchange"
+
+class DeltaExchangeClient:
+    def __init__(self, config: DeltaExchangeConfig):
+        self.config = config
+        self.client = DeltaRestClient(
+            base_url=config.base_url,
+            api_key=config.api_key,
+            api_secret=config.api_secret
+        )
+        self.is_connected = False
+        
+    def _run_sync(self, coro):
+        """Helper to run async methods synchronously"""
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If we're already in an event loop, create a new one
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, coro)
+                    return future.result()
+            else:
+                return loop.run_until_complete(coro)
+        except RuntimeError:
+            # No event loop, create a new one
+            return asyncio.run(coro)
+    
+    async def test_connection(self) -> bool:
+        """Test API connection"""
+        try:
+            # Test connection by getting assets with authentication
+            response = await self._get_assets_auth()
+            # Check if response is successful (should be a list of assets)
+            if isinstance(response, list) and len(response) > 0:
+                self.is_connected = True
+                logger.info("Successfully connected to Delta Exchange")
+                return True
+            elif isinstance(response, dict) and response.get('success', False):
+                self.is_connected = True
+                logger.info("Successfully connected to Delta Exchange")
+                return True
+            else:
+                logger.error(f"Failed to connect to Delta Exchange: {response}")
+                return False
+        except Exception as e:
+            logger.error(f"Error testing Delta Exchange connection: {e}")
+            return False
+    
+    async def _get_assets_auth(self) -> Dict[str, Any]:
+        """Get assets with authentication (sync method wrapped)"""
+        def _sync_get_assets():
+            return self.client.get_assets(auth=True)
+        
+        return await asyncio.get_event_loop().run_in_executor(None, _sync_get_assets)
+    
+    async def _get_balances(self, asset_id: str) -> Dict[str, Any]:
+        """Get user balances for specific asset (sync method wrapped)"""
+        def _sync_get_balances():
+            return self.client.get_balances(asset_id)
+        
+        return await asyncio.get_event_loop().run_in_executor(None, _sync_get_balances)
+    
+    async def get_balance(self, asset_id: str = "1") -> Dict[str, Any]:
+        """Get account balance for specific asset"""
+        try:
+            response = await self._get_balances(asset_id)
+            
+            if response.get('success', False):
+                balances = response.get('result', [])
+                # Convert to a more usable format
+                balance_dict = {}
+                for balance in balances:
+                    balance_dict[balance.get('asset_symbol', 'unknown')] = {
+                        'balance': balance.get('balance', 0),
+                        'reserved_balance': balance.get('reserved_balance', 0),
+                        'available_balance': balance.get('available_balance', 0)
+                    }
+                return {'success': True, 'result': balance_dict}
+            else:
+                return response
+        except Exception as e:
+            logger.error(f"Error getting balance: {e}")
+            return {'success': False, 'error': {'message': str(e)}}
+    
+    async def get_products(self) -> Dict[str, Any]:
+        """Get available products/instruments"""
+        try:
+            # Since get_product() requires product_id, we'll use get_assets() as a fallback
+            # This will at least return available assets
+            def _sync_get_assets():
+                return self.client.get_assets(auth=False)
+            
+            response = await asyncio.get_event_loop().run_in_executor(None, _sync_get_assets)
+            
+            if isinstance(response, list):
+                # get_assets returns a list directly
+                return {'success': True, 'result': response}
+            elif isinstance(response, dict) and response.get('success', False):
+                products = response.get('result', [])
+                return {'success': True, 'result': products}
+            else:
+                return {'success': False, 'error': {'message': 'Unable to get products'}}
+        except Exception as e:
+            logger.error(f"Error getting products: {e}")
+            return {'success': False, 'error': {'message': str(e)}}
+    
+    async def place_order(self, product_id: int, side: str, quantity: float, price: float, order_type: str = "limit_order") -> Dict[str, Any]:
+        """Place a trading order"""
+        try:
+            def _sync_place_order():
+                return self.client.place_order(
+                    product_id=product_id,
+                    side=side,
+                    order_type=order_type,
+                    size=int(quantity),
+                    limit_price=price
+                )
+            
+            response = await asyncio.get_event_loop().run_in_executor(None, _sync_place_order)
+            
+            if response.get('success', False):
+                order_result = response.get('result', {})
+                return {'success': True, 'result': order_result}
+            else:
+                return response
+        except Exception as e:
+            logger.error(f"Error placing order: {e}")
+            return {'success': False, 'error': {'message': str(e)}}
+    
+    async def get_orders(self, product_id: Optional[int] = None, state: str = "open") -> Dict[str, Any]:
+        """Get user orders"""
+        try:
+            def _sync_get_orders():
+                return self.client.get_live_orders(product_id=product_id, state=state)
+            
+            response = await asyncio.get_event_loop().run_in_executor(None, _sync_get_orders)
+            
+            if response.get('success', False):
+                orders = response.get('result', [])
+                return {'success': True, 'result': orders}
+            else:
+                return response
+        except Exception as e:
+            logger.error(f"Error getting orders: {e}")
+            return {'success': False, 'error': {'message': str(e)}}
+    
+    async def get_ticker(self, symbol: str) -> Dict[str, Any]:
+        """Get ticker data for a symbol"""
+        try:
+            # First get products to find the product_id for the symbol
+            products_response = await self.get_products()
+            if not products_response.get('success', False):
+                return products_response
+            
+            products = products_response.get('result', [])
+            product_id = None
+            
+            for product in products:
+                if product.get('symbol') == symbol:
+                    product_id = product.get('id')
+                    break
+            
+            if product_id is None:
+                return {'success': False, 'error': {'message': f'Product not found for symbol: {symbol}'}}
+            
+            def _sync_get_ticker():
+                return self.client.get_ticker(product_id=product_id)
+            
+            response = await asyncio.get_event_loop().run_in_executor(None, _sync_get_ticker)
+            
+            if response.get('success', False):
+                ticker = response.get('result', {})
+                return {'success': True, 'result': ticker}
+            else:
+                return response
+        except Exception as e:
+            logger.error(f"Error getting ticker: {e}")
+            return {'success': False, 'error': {'message': str(e)}}
+    
+    async def get_account_info(self) -> Dict[str, Any]:
+        """Get account information"""
+        try:
+            # Get balance for main asset (usually asset_id=1 for USDT)
+            response = await self._get_balances("1")
+            if response.get('success', False):
+                return {'success': True, 'result': response.get('result', {})}
+            else:
+                return response
+        except Exception as e:
+            logger.error(f"Error getting account info: {e}")
+            return {'success': False, 'error': {'message': str(e)}}
+    
+    def test_connection_sync(self) -> bool:
+        """Synchronous wrapper for test_connection"""
+        return self._run_sync(self.test_connection())
+    
+    def get_balance_sync(self, asset_id: str = "1") -> Dict[str, Any]:
+        """Synchronous wrapper for get_balance"""
+        return self._run_sync(self.get_balance(asset_id))
+    
+    def get_products_sync(self) -> Dict[str, Any]:
+        """Synchronous wrapper for get_products"""
+        return self._run_sync(self.get_products())
+    
+    def place_order_sync(self, product_id: int, side: str, quantity: float, price: float, order_type: str = "limit_order") -> Dict[str, Any]:
+        """Synchronous wrapper for place_order"""
+        return self._run_sync(self.place_order(product_id, side, quantity, price, order_type))
+    
+    def get_orders_sync(self, product_id: Optional[int] = None, state: str = "open") -> Dict[str, Any]:
+        """Synchronous wrapper for get_orders"""
+        return self._run_sync(self.get_orders(product_id, state))
+    
+    def get_ticker_sync(self, symbol: str) -> Dict[str, Any]:
+        """Synchronous wrapper for get_ticker"""
+        return self._run_sync(self.get_ticker(symbol))
+    
+    def get_account_info_sync(self) -> Dict[str, Any]:
+        """Synchronous wrapper for get_account_info"""
+        return self._run_sync(self.get_account_info())

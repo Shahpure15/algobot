@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: ${DOCKERHUB_USERNAME}/algobot-frontend:latest
+    container_name: algobot-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - algobot-network
+    environment:
+      - NODE_ENV=production
+      - VITE_API_URL=/api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+  backend:
+    image: ${DOCKERHUB_USERNAME}/algobot-backend:latest
+    container_name: algobot-backend
+    restart: unless-stopped
+    depends_on:
+      - database
+    networks:
+      - algobot-network
+    environment:
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD:-postgres}@database:5432/algobot
+      - CORS_ORIGINS=${DOMAIN:-http://localhost}
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOG_LEVEL=info
+      - DEBUG=false
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`/api`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+
+  database:
+    image: postgres:14-alpine
+    container_name: algobot-database
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=algobot
+    networks:
+      - algobot-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  traefik:
+    image: traefik:v2.9
+    container_name: algobot-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./traefik/certificates:/certificates
+    networks:
+      - algobot-network
+    labels:
+      - "traefik.enable=true"
+
+networks:
+  algobot-network:
+    name: algobot-network
+
+volumes:
+  postgres_data:
+    name: algobot-postgres-data
