@@ -71,6 +71,7 @@ const apiService = {
       });
     },
     me: () => api.get('/api/auth/me'),
+    logout: () => api.post('/api/auth/logout'),
     connect: (exchangeCredentials) => api.post('/api/auth/connect', exchangeCredentials),
     disconnect: () => api.post('/api/auth/disconnect'),
     status: () => api.get('/api/auth/status'),
@@ -81,6 +82,16 @@ const apiService = {
     balance: () => api.get('/api/account/balance'),
     products: () => api.get('/api/account/products'),
     positions: () => api.get('/api/account/positions'),
+  },
+  
+  // Profile endpoints
+  profile: {
+    get: () => api.get('/api/profile/'),
+    update: (profileData) => api.put('/api/profile/', profileData),
+    updateCredentials: (credentialsData) => api.post('/api/profile/credentials', credentialsData),
+    deleteCredentials: (provider) => api.delete(`/api/profile/credentials/${provider}`),
+    testConnection: (provider) => api.post(`/api/profile/test-connection/${provider}`),
+    updatePassword: (passwordData) => api.put('/api/profile/password', passwordData),
   },
   
   // Trading endpoints

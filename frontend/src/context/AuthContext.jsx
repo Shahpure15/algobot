@@ -94,7 +94,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Logout function
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // Call logout endpoint to invalidate token on server
+      await apiService.auth.logout();
+    } catch (error) {
+      console.error('Error logging out on server:', error);
+    }
+    
+    // Clear local storage regardless of server response
     localStorage.removeItem('access_token');
     localStorage.removeItem('user');
     localStorage.removeItem('last_activity');

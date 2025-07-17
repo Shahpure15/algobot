@@ -14,7 +14,7 @@ services:
       - db_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U trader"]
+      test: ["CMD-SHELL", "pg_isready -U trader -d trading"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,7 +30,7 @@ services:
     volumes:
       - ./backend:/code
     environment:
-      DATABASE_URL: postgresql+asyncpg://trader:secret@db:5432/trading
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://trader:secret@db:5432/trading}
       DELTA_API_KEY: ${DELTA_API_KEY:-}
       DELTA_API_SECRET: ${DELTA_API_SECRET:-}
       DELTA_BASE_URL: ${DELTA_BASE_URL:-https://api.delta.exchange}

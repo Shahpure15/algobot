@@ -41,19 +41,9 @@ class DeltaExchangeClient:
     async def test_connection(self) -> bool:
         """Test API connection"""
         try:
-            response = await self._get_assets_auth()
-            if isinstance(response, list) and len(response) > 0:
-                self.is_connected = True
-                logger.info("Successfully connected to Delta Exchange")
-                
-                try:
-                    await self._test_wallet_permissions()
-                except Exception as e:
-                    logger.warning(f"Wallet permissions test failed: {e}")
-                    self.has_wallet_permissions = False
-                
-                return True
-            elif isinstance(response, dict) and response.get('success', False):
+            # Try to get products to test connection
+            response = await self.get_products()
+            if isinstance(response, dict) and response.get('success', False):
                 self.is_connected = True
                 logger.info("Successfully connected to Delta Exchange")
                 
@@ -86,16 +76,26 @@ class DeltaExchangeClient:
             logger.warning(f"API key does not have wallet permissions: {e}")
 
     async def _get_assets_auth(self) -> Dict[str, Any]:
-        """Get assets with authentication"""
-        def _sync_get_assets():
-            return self.client.get_assets(auth=True)
-        return await asyncio.get_event_loop().run_in_executor(None, _sync_get_assets)
+        """Get wallet balance with authentication to test connection"""
+        def _sync_get_wallet():
+            # Use the request method directly to call the wallet endpoint
+            response = self.client.request("GET", "v2/wallet/balances", auth=True)
+            
+            # Handle response object
+            if hasattr(response, 'json'):
+                return response.json()
+            elif hasattr(response, 'text'):
+                import json
+                return json.loads(response.text)
+            else:
+                return response
+        return await asyncio.get_event_loop().run_in_executor(None, _sync_get_wallet)
 
     async def _get_wallet_balances(self) -> Dict[str, Any]:
         """Get user wallet balances - uses direct API call since delta-rest-client might not have this endpoint"""
         def _sync_get_wallet_balances():
             # Use the client's request method directly to call the wallet balances endpoint
-            response = self.client.request("GET", "/v2/wallet/balances", auth=True)
+            response = self.client.request("GET", "v2/wallet/balances", auth=True)
             
             # Handle response object
             if hasattr(response, 'json'):
@@ -158,7 +158,7 @@ class DeltaExchangeClient:
                 query_params.append(f"page_size={page_size}")
                 
                 # Build URL with query parameters
-                url = "/v2/products"
+                url = "v2/products"
                 if query_params:
                     url += "?" + "&".join(query_params)
                 
@@ -175,9 +175,16 @@ class DeltaExchangeClient:
             
             response = await asyncio.get_event_loop().run_in_executor(None, _sync_get_products)
             
+            # Debug: Log the raw response
+            logger.info(f"Raw products response: {response}")
+            
             if response.get('success', False):
                 return response
             else:
+                # If response doesn't have success key but has result, it's likely successful
+                if 'result' in response:
+                    logger.info("Products response has result key - assuming success")
+                    return {'success': True, 'result': response['result']}
                 # Fallback to assets if products endpoint fails
                 return await self._get_assets_fallback()
         except Exception as e:
@@ -188,7 +195,7 @@ class DeltaExchangeClient:
         """Get specific product by symbol from Delta Exchange"""
         try:
             def _sync_get_product():
-                response = self.client.request("GET", f"/v2/products/{symbol}", auth=False)
+                response = self.client.request("GET", f"v2/products/{symbol}", auth=False)
                 
                 # Handle response object
                 if hasattr(response, 'json'):
@@ -221,7 +228,7 @@ class DeltaExchangeClient:
                     query_params.append(f"expiry_date={expiry_date}")
                 
                 # Build URL with query parameters
-                url = "/v2/tickers"
+                url = "v2/tickers"
                 if query_params:
                     url += "?" + "&".join(query_params)
                 
@@ -246,7 +253,7 @@ class DeltaExchangeClient:
         """Get ticker for specific product by symbol from Delta Exchange"""
         try:
             def _sync_get_ticker():
-                response = self.client.request("GET", f"/v2/tickers/{symbol}", auth=False)
+                response = self.client.request("GET", f"v2/tickers/{symbol}", auth=False)
                 
                 # Handle response object
                 if hasattr(response, 'json'):
@@ -274,7 +281,7 @@ class DeltaExchangeClient:
                     f"expiry_date={expiry_date}"
                 ]
                 
-                url = "/v2/tickers?" + "&".join(query_params)
+                url = "v2/tickers?" + "&".join(query_params)
                 response = self.client.request("GET", url, auth=False)
                 
                 # Handle response object
@@ -293,12 +300,21 @@ class DeltaExchangeClient:
             return {'success': False, 'error': {'message': str(e)}}
 
     async def _get_assets_fallback(self) -> Dict[str, Any]:
-        """Fallback method to get assets when products endpoint fails"""
+        """Fallback method to get products when main endpoint fails"""
         try:
-            def _sync_get_assets():
-                return self.client.get_assets(auth=False)
+            def _sync_get_products():
+                response = self.client.request("GET", "v2/products", auth=False)
+                
+                # Handle response object
+                if hasattr(response, 'json'):
+                    return response.json()
+                elif hasattr(response, 'text'):
+                    import json
+                    return json.loads(response.text)
+                else:
+                    return response
             
-            response = await asyncio.get_event_loop().run_in_executor(None, _sync_get_assets)
+            response = await asyncio.get_event_loop().run_in_executor(None, _sync_get_products)
             if isinstance(response, list):
                 major_assets = []
                 for asset in response:
@@ -358,7 +374,7 @@ class DeltaExchangeClient:
                 query_params.append(f"page_size={page_size}")
                 
                 # Build URL with query parameters
-                url = "/v2/wallet/transactions"
+                url = "v2/wallet/transactions"
                 if query_params:
                     url += "?" + "&".join(query_params)
                 
@@ -457,7 +473,7 @@ class DeltaExchangeClient:
                 if stop_price and (order_type == "stop_loss_order" or order_type == "take_profit_order"):
                     order_data['stop_price'] = stop_price
                 
-                return self.client.request("POST", "/v2/orders", json=order_data, auth=True)
+                return self.client.request("POST", "v2/orders", json=order_data, auth=True)
             
             response = await asyncio.get_event_loop().run_in_executor(None, _sync_place_order)
             
@@ -485,7 +501,7 @@ class DeltaExchangeClient:
                 query_params.append(f"page_size={page_size}")
                 
                 # Build URL with query parameters
-                url = "/v2/orders"
+                url = "v2/orders"
                 if query_params:
                     url += "?" + "&".join(query_params)
                 
@@ -502,7 +518,7 @@ class DeltaExchangeClient:
         """Get specific order by ID from Delta Exchange"""
         try:
             def _sync_get_order():
-                return self.client.request("GET", f"/v2/orders/{order_id}", auth=True)
+                return self.client.request("GET", f"v2/orders/{order_id}", auth=True)
             
             response = await asyncio.get_event_loop().run_in_executor(None, _sync_get_order)
             return response
@@ -519,7 +535,7 @@ class DeltaExchangeClient:
                     'id': int(order_id),
                     'product_id': product_id
                 }
-                return self.client.request("DELETE", "/v2/orders", json=cancel_data, auth=True)
+                return self.client.request("DELETE", "v2/orders", json=cancel_data, auth=True)
             
             response = await asyncio.get_event_loop().run_in_executor(None, _sync_cancel_order)
             return response
@@ -533,10 +549,10 @@ class DeltaExchangeClient:
         try:
             def _sync_get_positions():
                 if product_id:
-                    url = f"/v2/positions?product_id={product_id}"
+                    url = f"v2/positions?product_id={product_id}"
                     return self.client.request("GET", url, auth=True)
                 else:
-                    return self.client.request("GET", "/v2/positions/margined", auth=True)
+                    return self.client.request("GET", "v2/positions/margined", auth=True)
             
             response = await asyncio.get_event_loop().run_in_executor(None, _sync_get_positions)
             return response
@@ -563,7 +579,7 @@ class DeltaExchangeClient:
                 query_params.append(f"page_size={page_size}")
                 
                 # Build URL with query parameters
-                url = "/v2/fills"
+                url = "v2/fills"
                 if query_params:
                     url += "?" + "&".join(query_params)
                 

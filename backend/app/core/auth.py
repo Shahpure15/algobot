@@ -35,6 +35,7 @@ class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str = Field(..., min_length=8)
+    full_name: Optional[str] = None
 
 class UserLogin(BaseModel):
     """User login request model"""
@@ -46,8 +47,9 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: str
-    is_active: bool
-    created_at: datetime
+    full_name: Optional[str] = None
+    is_active: bool = True
+    created_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
 
 class Token(BaseModel):

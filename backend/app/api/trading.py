@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import BaseModel, field_validator
 from app.db import database
-from app.api.auth import get_delta_client
+from app.api.auth import get_user_delta_client, get_current_user_id
 from typing import Optional, List
 from decimal import Decimal
 import json
@@ -71,11 +71,11 @@ class TradeResponse(BaseModel):
 
 
 @router.post("/trade", response_model=TradeResponse)
-async def place_trade(trade: TradeRequest):
+async def place_trade(trade: TradeRequest, user_id: int = Depends(get_current_user_id)):
     """Place a trade through Delta Exchange"""
     try:
         # Get Delta Exchange client
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Prepare parameters for the order
         order_params = {
@@ -156,7 +156,7 @@ async def place_trade(trade: TradeRequest):
 
 
 @router.get("/orders")
-async def get_trading_orders():
+async def get_trading_orders(user_id: int = Depends(get_current_user_id)):
     """Get all local trading orders"""
     try:
         query = """
@@ -190,7 +190,7 @@ async def get_trading_orders():
 
 
 @router.get("/orders/{order_id}")
-async def get_order_details(order_id: int):
+async def get_order_details(order_id: int, user_id: int = Depends(get_current_user_id)):
     """Get details of a specific order"""
     try:
         query = """
@@ -228,10 +228,10 @@ async def get_order_details(order_id: int):
 
 
 @router.get("/live-orders")
-async def get_live_orders():
+async def get_live_orders(user_id: int = Depends(get_current_user_id)):
     """Get live orders from Delta Exchange"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Get active orders from Delta Exchange
         orders_result = client.get_orders_sync(states="open,pending")
@@ -283,10 +283,10 @@ async def get_live_orders():
 
 
 @router.post("/orders/cancel")
-async def cancel_order(cancel_request: CancelOrderRequest):
+async def cancel_order(cancel_request: CancelOrderRequest, user_id: int = Depends(get_current_user_id)):
     """Cancel an order on Delta Exchange"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Cancel order on Delta Exchange
         cancel_result = client.cancel_order_sync(cancel_request.order_id, cancel_request.product_id)
@@ -322,10 +322,10 @@ async def cancel_order(cancel_request: CancelOrderRequest):
 
 
 @router.get("/positions")
-async def get_positions(product_id: Optional[int] = None):
+async def get_positions(product_id: Optional[int] = None, user_id: int = Depends(get_current_user_id)):
     """Get positions from Delta Exchange"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Get positions from Delta Exchange
         positions_result = client.get_positions_sync(product_id)
@@ -394,10 +394,11 @@ async def get_positions(product_id: Optional[int] = None):
 async def get_fills(product_ids: Optional[str] = None, 
                    start_time: Optional[int] = None,
                    end_time: Optional[int] = None,
-                   page_size: int = 50):
+                   page_size: int = 50,
+                   user_id: int = Depends(get_current_user_id)):
     """Get fills/trade history from Delta Exchange"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Get fills from Delta Exchange
         fills_result = client.get_fills_sync(product_ids, start_time, end_time, page_size)
@@ -442,10 +443,10 @@ async def get_fills(product_ids: Optional[str] = None,
 
 
 @router.post("/sync-orders")
-async def sync_orders():
+async def sync_orders(user_id: int = Depends(get_current_user_id)):
     """Sync local orders with Delta Exchange status"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Get all orders with delta_order_id that are not closed/cancelled
         query = """
@@ -505,7 +506,7 @@ async def sync_orders():
 
 
 @router.post("/demo-trade")
-async def demo_trade(trade: TradeRequest):
+async def demo_trade(trade: TradeRequest, user_id: int = Depends(get_current_user_id)):
     """Demo trade endpoint - simulates order placement without hitting real API"""
     try:
         # Simulate order processing delay
@@ -551,7 +552,7 @@ async def demo_trade(trade: TradeRequest):
 
 
 @router.get("/demo-orders")
-async def get_demo_orders():
+async def get_demo_orders(user_id: int = Depends(get_current_user_id)):
     """Get demo orders for testing"""
     try:
         # Generate some fake live orders for demo
@@ -586,7 +587,7 @@ async def get_demo_orders():
 
 
 @router.get("/demo-positions") 
-async def get_demo_positions():
+async def get_demo_positions(user_id: int = Depends(get_current_user_id)):
     """Get demo positions for testing"""
     try:
         # Generate some fake positions for demo
@@ -627,11 +628,12 @@ async def get_products(
     states: Optional[str] = Query(None, description="Comma separated list of states"),
     after: Optional[str] = Query(None, description="After cursor for pagination"),
     before: Optional[str] = Query(None, description="Before cursor for pagination"),
-    page_size: int = Query(100, description="Size of a single page")
+    page_size: int = Query(100, description="Size of a single page"),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Get list of available products/instruments"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Get products from Delta Exchange
         products_result = client.get_products_sync(
@@ -660,10 +662,10 @@ async def get_products(
 
 
 @router.get("/products/{symbol}")
-async def get_product_by_symbol(symbol: str):
+async def get_product_by_symbol(symbol: str, user_id: int = Depends(get_current_user_id)):
     """Get details of a specific product by symbol"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Get product from Delta Exchange
         product_result = client.get_product_by_symbol_sync(symbol)
@@ -689,11 +691,12 @@ async def get_product_by_symbol(symbol: str):
 async def get_tickers(
     contract_types: Optional[str] = Query(None, description="Comma separated list of contract types"),
     underlying_asset_symbols: Optional[str] = Query(None, description="Comma separated list of underlying asset symbols"),
-    expiry_date: Optional[str] = Query(None, description="Expiry date in DD-MM-YYYY format")
+    expiry_date: Optional[str] = Query(None, description="Expiry date in DD-MM-YYYY format"),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Get tickers for products"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Get tickers from Delta Exchange
         tickers_result = client.get_tickers_sync(
@@ -720,10 +723,10 @@ async def get_tickers(
 
 
 @router.get("/tickers/{symbol}")
-async def get_ticker_by_symbol(symbol: str):
+async def get_ticker_by_symbol(symbol: str, user_id: int = Depends(get_current_user_id)):
     """Get ticker for a specific product by symbol"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Get ticker from Delta Exchange
         ticker_result = client.get_ticker_by_symbol_sync(symbol)
@@ -748,11 +751,12 @@ async def get_ticker_by_symbol(symbol: str):
 @router.get("/option-chain")
 async def get_option_chain(
     underlying_asset_symbols: str = Query(..., description="Underlying asset symbol (e.g., BTC, ETH)"),
-    expiry_date: str = Query(..., description="Expiry date in DD-MM-YYYY format")
+    expiry_date: str = Query(..., description="Expiry date in DD-MM-YYYY format"),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Get option chain data for given underlying asset and expiry date"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Get option chain from Delta Exchange
         option_chain_result = client.get_option_chain_sync(
@@ -778,7 +782,7 @@ async def get_option_chain(
 
 
 @router.get("/demo-products")
-async def get_demo_products():
+async def get_demo_products(user_id: int = Depends(get_current_user_id)):
     """Get demo products for testing"""
     try:
         # Generate some fake products for demo
@@ -849,7 +853,7 @@ async def get_demo_products():
 
 
 @router.get("/demo-tickers")
-async def get_demo_tickers():
+async def get_demo_tickers(user_id: int = Depends(get_current_user_id)):
     """Get demo tickers for testing"""
     try:
         # Generate some fake tickers for demo

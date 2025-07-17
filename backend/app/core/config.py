@@ -37,9 +37,7 @@ class Settings(BaseModel):
         default=os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
     )
 
-    # API Credentials
-    delta_api_key: str = Field(default=os.getenv("DELTA_API_KEY", ""))
-    delta_api_secret: str = Field(default=os.getenv("DELTA_API_SECRET", ""))
+    # Delta Exchange (default configuration only - users will use their own credentials)
     delta_base_url: str = Field(default=os.getenv("DELTA_BASE_URL", "https://api.delta.exchange"))
     
     # API Configurations

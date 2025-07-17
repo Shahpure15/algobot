@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import BaseModel
-from app.api.auth import get_delta_client
+from app.api.auth import get_user_delta_client
+from app.api.auth import get_current_user_id
 from app.db import database
 from typing import Dict, Any, List, Optional
 from decimal import Decimal
@@ -21,10 +22,10 @@ class AccountInfo(BaseModel):
 
 
 @router.get("/balance", response_model=AccountInfo)
-async def get_account_balance():
+async def get_account_balance(user_id: int = Depends(get_current_user_id)):
     """Get account balance from Delta Exchange"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         balance_data = await client.get_balance()
         
         # Process balance data
@@ -49,10 +50,10 @@ async def get_account_balance():
 
 
 @router.get("/products")
-async def get_products():
+async def get_products(user_id: int = Depends(get_current_user_id)):
     """Get available trading products/symbols"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         products_data = await client.get_products()
         
         # Process products data
@@ -77,10 +78,10 @@ async def get_products():
 
 
 @router.get("/orders")
-async def get_order_history():
+async def get_order_history(user_id: int = Depends(get_current_user_id)):
     """Get order history from Delta Exchange"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         orders_data = await client.get_orders()
         
         orders = []
@@ -112,11 +113,12 @@ async def get_wallet_transactions(
     asset_ids: Optional[str] = Query(None, description="Comma-separated asset IDs"),
     start_time: Optional[int] = Query(None, description="Start time in microseconds"),
     end_time: Optional[int] = Query(None, description="End time in microseconds"),
-    page_size: int = Query(50, description="Number of transactions per page")
+    page_size: int = Query(50, description="Number of transactions per page"),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Get wallet transaction history from Delta Exchange"""
     try:
-        client = get_delta_client()
+        client = get_user_delta_client(user_id)
         
         # Parse asset_ids if provided
         asset_ids_list = None
